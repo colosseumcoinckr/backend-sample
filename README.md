@@ -28,4 +28,5 @@ source ~/.zsrhc
 ㄴ infrastructure
 ㄴ api
 ㄴ usecase
+ㄴ global
 ```
