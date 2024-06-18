@@ -4,8 +4,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
 @SpringBootApplication
-class ExternalSampleApplication
+class SampleApplication
 
 fun main(args: Array<String>) {
-    runApplication<ExternalSampleApplication>(*args)
+    System.setProperty("spring.config.name", "application,application-infra")
+    runApplication<SampleApplication>(*args)
 }

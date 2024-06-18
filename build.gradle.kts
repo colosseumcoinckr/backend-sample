@@ -6,17 +6,19 @@ plugins {
     kotlin("plugin.spring") version "1.9.24"
 }
 
-group = "org.colosseum"
-version = "0.0.1-SNAPSHOT"
-
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
-repositories {
-    mavenCentral()
+allprojects {
+    group = "org.colosseum"
+    version = "0.0.1-SNAPSHOT"
+
+    repositories {
+        mavenCentral()
+    }
 }
 
 subprojects {
@@ -37,6 +39,7 @@ subprojects {
     }
 
     kotlin {
+        jvmToolchain(21)
         compilerOptions {
             freeCompilerArgs.addAll("-Xjsr305=strict")
         }
