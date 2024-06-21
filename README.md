@@ -30,3 +30,5 @@ source ~/.zsrhc
 ㄴ usecase
 ㄴ global
 ```
+
+Relase Test
