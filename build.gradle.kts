@@ -57,8 +57,7 @@ jib {
         image = "amazoncorretto:21"
     }
     to {
-        image =
-            "${System.getenv("AWS_ECR_REGISTRY")}/${System.getenv("AWS_ECR_REPOSITORY_NAME")}:${System.getenv("IMAGE_TAG")}"
+        image = "${System.getenv("AWS_ECR_REGISTRY")}/${System.getenv("AWS_ECR_REPOSITORY_NAME")}:${System.getenv("IMAGE_TAG")}"
     }
     container {
         jvmFlags = when (env) {
@@ -66,22 +65,20 @@ jib {
                 "-Xms512m",
                 "-Xmx1024m",
                 "-Dspring.profiles.active=$env",
-                "-Duser.timezone=UTC",
-                "-XX:+UseContainerSupport",
+                "-Duser.timezone=Asia/Seoul",
+                "-XX:+UseContainerSupport"
             )
-
             "staging" -> mutableListOf(
                 "-Xms1024m",
                 "-Xmx2048m",
                 "-Dspring.profiles.active=$env",
-                "-Duser.timezone=UTC",
-                "-XX:+UseContainerSupport",
+                "-Duser.timezone=Asia/Seoul",
+                "-XX:+UseContainerSupport"
             )
-
             else -> emptyList()
         }
         creationTime = "USE_CURRENT_TIMESTAMP"
         ports = mutableListOf("8080")
-        mainClass = "org.example.Main"
+        mainClass = "org.colosseum.sample.SampleApplication"
     }
 }
