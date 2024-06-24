@@ -1,19 +1,18 @@
-name: Build & Test in Pull Request to Develop
+name: Build & Test in Pull Request to Stage
 
 on:
   pull_request:
-    branches: [ "develop" ]
+    branches: [ "staging" ]
 
 env:
-  NOTI_PR_DEVELOP_WEBHOOK: ${{ secrets.NOTI_PR_DEVELOP_WEBHOOK }}
+  NOTI_PR_STAGING_WEBHOOK: ${{ secrets.NOTI_PR_STAGING_WEBHOOK }}
 
 permissions:
   contents: read
 
-
 jobs:
   build:
-    name: Build & Test on develop
+    name: Build & Test on main
     runs-on: ubuntu-latest
 
     steps:
@@ -33,7 +32,7 @@ jobs:
         run: ./gradlew :api:build
 
   notification:
-    name: Notification
+    name: Slack Notification
     runs-on: ubuntu-latest
     if: ${{ always() }}
     needs: [ build ]
@@ -45,10 +44,10 @@ jobs:
         with:
           status: ${{ steps.check.outputs.status }}
           author_name: Build & Test before Pull Request
-          job_name: Build & Test on develop
+          job_name: Build & Test on main
           mention: 'channel'
           if_mention: 'failure, cancelled'
           fields: repo,commit,message,author,job,eventName,ref,workflow,took,pullRequest
         env:
-          SLACK_WEBHOOK_URL: ${{ env.NOTI_PR_DEVELOP_WEBHOOK}}
+          SLACK_WEBHOOK_URL: ${{ env.NOTI_PR_STAGING_WEBHOOK }}
         if: always()

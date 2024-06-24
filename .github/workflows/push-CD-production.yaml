@@ -1,0 +1,116 @@
+name: Push & Deploy release(main) image to AWS ECS
+
+on:
+  release:
+    types: [ "published" ]
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ECR_REPOSITORY_NAME: ${{ secrets.AWS_ECR_REPOSITORY_NAME }}
+  AWS_ECS_CLUSTER_NAME: ${{ secrets.AWS_ECS_CLUSTER_NAME }}
+  # modify the suffix(-environment) according to deploy environment name
+  AWS_ECS_TASK_DEFINITION_NAME: ${{ secrets.AWS_ECS_TASK_DEFINITION_NAME }}-production
+  AWS_ECS_SERVICE_NAME: ${{ secrets.AWS_ECS_SERVICE_NAME }}-production
+  AWS_ECS_CONTAINER_NAME: ${{ secrets.AWS_ECS_CONTAINER_NAME }}-production
+  ######################################################################
+  NOTI_DEPLOY_PRODUCTION_WEBHOOK: ${{ secrets.NOTI_DEPLOY_PRODUCTION_WEBHOOK }}
+  DEPLOY_ENVIRONMENT: production
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # modify the environment
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'corretto'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@417ae3ccd767c252f5661f1ace9f835f9654f2b5
+
+      - name: Build with Gradle Wrapper
+        run: ./gradlew :api:build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Set short git commit SHA
+        id: commit-sha
+        run: |
+          echo "shortCommitSha=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_OUTPUT  
+
+      - name: Login to AWS ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR with JIB
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          # modify the prefix(environment-) according to deploy environment name
+          IMAGE_TAG: release-${{ steps.commit-sha.outputs.shortCommitSha }}
+        run: |
+          ./gradlew clean jib
+          echo "image=$AWS_ECR_REGISTRY/$AWS_ECR_REPOSITORY_NAME:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Retrieve most recent ECS task definition JSON file
+        id: retrieve-task-def
+        run: |
+          aws ecs describe-task-definition --task-definition $AWS_ECS_TASK_DEFINITION_NAME --query taskDefinition > task-definition.json
+          cat task-definition.json
+          echo "task-def-file=task-definition.json" >> $GITHUB_OUTPUT
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ steps.retrieve-task-def.outputs.task-def-file }}
+          container-name: ${{ env.AWS_ECS_CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.AWS_ECS_SERVICE_NAME }}
+          cluster: ${{ env.AWS_ECS_CLUSTER_NAME }}
+          wait-for-service-stability: true
+
+  notification:
+    name: Slack Notification
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    needs: [ deploy ]
+    steps:
+      - uses: martialonline/workflow-status@v3
+        id: check
+      - name: action-slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ steps.check.outputs.status }}
+          author_name: Push & Deploy to production
+          job_name: Deploy to production
+          mention: 'channel'
+          if_mention: 'failure, cancelled'
+          fields: repo,commit,message,author,job,eventName,ref,workflow,took
+        env:
+          # modify environment according to deploy environment name
+          SLACK_WEBHOOK_URL: ${{ secrets.NOTI_DEPLOY_PRODUCTION_WEBHOOK }}
+        if: always()
