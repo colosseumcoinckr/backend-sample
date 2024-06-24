@@ -54,7 +54,7 @@ jobs:
       - name: Set short git commit SHA
         id: commit-sha
         run: |
-          echo "shortCommitSha=$(git rev-parse --short ${{ github.sha }})" >>$GITHUB_OUTPUT  
+          echo "shortCommitSha=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_OUTPUT  
 
       - name: Login to AWS ECR
         id: login-ecr
